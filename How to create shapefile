@@ -1,0 +1,16 @@
+// Note: To create a shapefile, click on (Draw a shape, line, or rectangle and) and draw
+var aoinewCollection = ee.FeatureCollection([geometry])
+
+// export the file 
+Export.table.toDrive({
+  collection: aoinewCollection,
+  description: 'Shapefile',
+  fileFormat: 'SHP'
+});
+
+var url = aoinewCollection.getDownloadURL({
+  format:'SHP',
+  filename:'Shapefile'
+})
+
+print('Click to download this shapefile', url)
