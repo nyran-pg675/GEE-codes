@@ -1,0 +1,132 @@
+// 1) AOI: Hela Province
+
+var hela = aoi.filter(ee.Filter.eq('NAME_1', 'Hela'));
+Map.centerObject(hela, 9);
+
+var helastyle = hela.style({
+  color: 'black',
+  fillColor:'00000000',
+  width: 4
+});
+Map.addLayer(helastyle, {}, 'Hela boundary');
+
+
+// 2) CHIRPS Daily Precipitation 2024
+
+var dataset = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+  .filterDate('2024-01-01', '2024-12-31')
+  .filterBounds(hela);
+
+var precipitation = dataset.select('precipitation'); // mm/day
+
+
+// 3) Annual Sum + Visualization
+
+var precipitationSum = precipitation.sum();
+var clipped = precipitationSum.clip(hela);
+
+// realistic palette: low = red, high = blue
+var precipitationVis = {
+  min: 2500,
+  max: 4700,
+  palette: ['red', 'orange', 'yellow', 'green', 'blue']
+};
+
+Map.addLayer(clipped, precipitationVis, 'Total Rainfall 2024');
+
+
+// 4) Monthly Time Series
+
+var monthly = ee.List.sequence(1, 12).map(function(m) {
+  var start = ee.Date.fromYMD(2024, m, 1);
+  var end = start.advance(1, 'month');
+  var monthlySum = precipitation.filterDate(start, end).sum();
+  var meanVal = monthlySum.reduceRegion({
+    reducer: ee.Reducer.mean(),
+    geometry: hela.geometry(),
+    scale: 5000,
+    maxPixels: 1e13
+  }).get('precipitation');
+  return ee.Feature(null, {
+    'month': m,
+    'rainfall_mm': meanVal
+  });
+});
+
+var monthlyFc = ee.FeatureCollection(monthly);
+
+
+// 5) Column Chart (bar chart)
+
+var chart = ui.Chart.feature.byFeature({
+  features: monthlyFc,
+  xProperty: 'month',
+  yProperties: ['rainfall_mm']
+})
+.setChartType('ColumnChart')
+.setOptions({
+  title: 'Average Monthly Rainfall in New Ireland Province (2024)',
+  hAxis: {title: 'Month', format: '0'},
+  vAxis: {title: 'Rainfall (mm)'},
+  legend: { position: 'none' },
+  colors: ['#1f77b4']
+});
+
+// Attach chart to the map UI (bottom-right)
+var chartPanel = ui.Panel({
+  widgets: [chart],
+  style: {position: 'bottom-right', width: '400px', height: '300px', padding: '8px'}
+});
+Map.add(chartPanel);
+
+// 6) Legend for Rainfall Map
+
+function addLegend(title, palette, min, max) {
+  var legend = ui.Panel({
+    style: {position: 'bottom-left', padding: '8px 15px'}
+  });
+
+  legend.add(ui.Label({
+    value: title,
+    style: {fontWeight: 'bold', fontSize: '14px', margin: '0 0 4px 0'}
+  }));
+
+  var colorBar = ui.Thumbnail({
+    image: ee.Image.pixelLonLat().select(0)
+      .multiply((max - min) / 100.0).add(min),
+    params: {
+      bbox: [0, 0, 100, 10],
+      dimensions: '100x10',
+      format: 'png',
+      min: min,
+      max: max,
+      palette: palette
+    },
+    style: {stretch: 'horizontal', margin: '0px 8px', maxHeight: '24px'}
+  });
+  legend.add(colorBar);
+
+  var labels = ui.Panel({
+    widgets: [
+      ui.Label(min.toFixed(0), {margin: '4px 8px'}),
+      ui.Label(max.toFixed(0), {margin: '4px 8px', textAlign: 'right', stretch: 'horizontal'})
+    ],
+    layout: ui.Panel.Layout.flow('horizontal')
+  });
+  legend.add(labels);
+
+  Map.add(legend);
+}
+
+// Add rainfall legend
+addLegend('Rainfall (mm, 2024)', precipitationVis.palette, precipitationVis.min, precipitationVis.max);
+Export.image.toDrive({
+  image: clipped, 
+  description: 'Average_rainfall_of_Hela_2024', // mistake no space
+  folder: 'Nyran Works',
+  region: hela, 
+  scale: 5000,
+  crs: 'EPSG:5550',
+  fileFormat: 'GeoTIFF',
+  maxPixels: 1e13
+});
