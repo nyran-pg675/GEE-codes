@@ -1,0 +1,125 @@
+;//Client and Server
+//role;
+//client = Writes and sends requests(Your browser or local machine)
+//server = Executes geospatial data operations(Google Earth Engine’s cloud servers)
+
+//numbers
+var a = ee.Number(6);
+var b = ee.Number(1);
+var c = a.add(b);
+print('Addition', c);
+
+var a = ee.Number(150);
+var b = ee.Number(5);
+var c = a.divide(b);
+print(c);
+
+//string 
+var string1 = ee.String('Google');
+var string2 = ee.String(' Earth engine')
+var combined = string1.cat(string2);
+print('combined string', combined);
+
+var nam = ee.String ('Nyran');
+var surname = ee.String(' Abraham Tahija');
+var combined = nam.cat(surname);
+print('combined string', combined);
+
+var aoi1 = ee.String('New Ireland');
+var aoi2 = ee.String(' Province');
+var aoi3 = aoi1.cat(aoi2);
+print(aoi3);
+
+//date 
+var date1 = ee.Date('2023-01-01');
+var date2 = ee.Date('2023-01-15');
+var difference = date2.difference(date1, 'day');  // Difference in days
+print('Date Difference (days):', difference);
+
+var date1 = ee.Date('2024-01-01');
+var date2 = ee.Date('2024-12-31');
+var combined = date2.difference(date1, 'week');
+print(combined);
+
+//list 
+var myList = ee.List([10, 20, 30, 40]);
+var firstItem = myList.get(2);
+var length = myList.length();
+print('First item:', firstItem);
+print('List length:', length);
+
+var myList = ee.List ([10,20,30,40,50,60,70,80,90,100]);
+var myFirstItem = myList.get(0);
+var length = myList.length();
+print('First item', myFirstItem);
+print('List length', length);
+
+//Dictionary 
+var myDict = ee.Dictionary({
+  name: 'Papua New Guinea',
+  area_km2: 462840,
+  region: 'Oceania'
+});
+
+var countryName = myDict.get('name');
+var area = myDict.get('area_km2');
+print('Country Name:', countryName);
+print('Area (km²):', area);
+
+//variables
+var x = 5;
+var name = 'Earth Engine';
+
+//function
+function double(x) {
+  return x * 2;
+}
+print(double(4));  // Output: 8
+
+
+//loops on client side (used rarely due to server-side nature)
+for (var i = 0; i < 5; i++) {
+  print(i);
+}
+
+// if else condition
+if (condition) {
+  // code to be executed if condition is true
+} else {
+  // code to be executed if condition is false
+}
+
+
+//if else condition
+var x = 10;
+if (x > 5) {
+  console.log("x is greater than 5");
+} else {
+  console.log("x is not greater than 5");
+}
+
+
+//loop of the server side 
+
+// Define Area of Interest (AOI)
+var aoi = ee.Geometry.Point([145.77, -5.30]);
+
+// Load and filter Sentinel-2 collection
+var collection = ee.ImageCollection('COPERNICUS/S2_SR')
+  .filterBounds(aoi)
+  .filterDate('2023-01-01', '2023-03-01')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20));
+
+// Map over the collection to compute NDVI for each image
+var withNDVI = collection.map(function(image) {
+  var ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI');
+  return image.addBands(ndvi);
+});
+
+// Print and visualize
+print('NDVI collection:', withNDVI);
+Map.centerObject(aoi, 10);
+Map.addLayer(withNDVI.median().select('NDVI'), {min: 0, max: 1, palette: ['white', 'green']}, 'Median NDVI');
+
+
+
