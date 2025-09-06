@@ -1,0 +1,38 @@
+// Add your shapefile or you can use FAO GAUL of your AOI
+//1. Load the data 
+var landsat = ee.ImageCollection("LANDSAT/LC08/C02/T1_TOA");
+
+//Check total number of images of landsat
+print('Total landsat image', landsat.size());
+
+//2. filter by your study area
+var aoi = landsat.filterBounds(roi);
+print('Image in roi', aoi.size());
+
+//3. filter image by cloud cover less than 1% (metadata)
+var reduceCloud = aoi.filterMetadata('CLOUD_COVER','LESS_THAN',1);
+print('Image of Cloud cover <1% in ROI', reduceCloud.size());
+
+//4. filter date 2024 
+var filterdate = reduceCloud.filterDate('2024-01-01','2024-12-31');
+print('Total landsat image in 2024 specfically roi', filterdate.size());
+
+//5. Clip each image to ROI (map)
+var ClippedImage = filterdate.map(function(image){
+  return image.clip(roi);
+})
+
+//6. Calculate median image
+var medianImage = ClippedImage. median();
+
+
+//7. Display the result on the map "roi" (No variable assign just only map)
+Map.centerObject(roi,9); // Zoom into your Study Area 
+Map.addLayer(roi, {color:'blue'}, 'roi boundary' );
+
+// Map.addLayer Median Image
+Map.addLayer(medianImage,{
+  bands: ['B4','B3','B2'], //RGB red, green, and blue
+  min: 0.05,
+  max: 0.4
+});
