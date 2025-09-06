@@ -1,2 +1,5 @@
-# GEE-codes
-Google earth engine codes
+I would describe myself as hardworking, curious, and adaptable qualities that fuel my passion for continuous learning and for applying innovative solutions in environmental science. These traits guide me in exploring new approaches, embracing challenges, and staying committed to making a meaningful impact.
+
+I am pursuing a Master of Science, Environmental Science in India. I hold a Bachelor’s degree in Sustainable Fisheries and Marine Resource Management, with prior research experience through work with ENB Sea Keepers on coral reef assessments, turtle monitoring, and ecosystem surveys. Additionally, I completed a three-month R&D internship at AHSIS, focusing on Remote Sensing and Machine Learning for Agricultural Monitoring.
+
+I am deeply interested in integrating Artificial Intelligence (AI), machine learning (ML), data science, and geospatial technologies to address sustainability challenges. My curiosity for Remote Sensing and GIS grew significantly during my internship at AHSIS. My current thesis utilizes satellite data and spatio-temporal analysis to monitor environmental stress in marine ecosystems, with a particular focus on coral health, under the guidance of Dr. Jalpa Jadeja
