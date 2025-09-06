@@ -1,0 +1,48 @@
+// Arrays and Array Methods
+
+var myArray = [1, "Hello", [2, 3]];
+
+// length - This method returns the number of elements in an array. For example, the following code will return 3:
+var myArray = [1, "Hello", [2, 3]];
+print(myArray.length); // the answer is 3
+
+// push - This method is used to add an element to the end of an array. For example, the following code will add the element "World" to the end of the array:
+var myArray = [1, "Hello", [2, 3]];
+myArray.push("World");
+print(myArray); // [1, "Hello", [2, 3], "World"]
+
+// pop - This method is used to remove the last element of an array. For example, the following code will remove the last element ("World") from the array:
+var myArray = [1, "Hello", [2, 3], "World"];
+myArray.pop();
+print(myArray); // [1, "Hello", [2, 3]]
+
+// shift - This method is used to remove the first element of an array. For example, the following code will remove the first element (1) from the array:
+var myArray = [1, "Hello", [2, 3]];
+myArray.shift();
+console.log(myArray); // ["Hello", [2, 3]]
+
+// unshift - This method is used to add an element to the beginning of an array. For example, the following code will add the element 0 to the beginning of the array:
+var myArray = [1, "Hello", [2, 3]];
+myArray.unshift(0);
+console.log(myArray); // [0, 1, "Hello", [2, 3]]
+
+// slice - This method is used to extract a portion of an array. For example, the following code will extract the elements from index 1 to 2 (exclusive):
+// 1 → Start at index 1 → which is the element "Hello"
+// 2 → Stop before index 2, so index 2 ([2, 3]) is excluded
+var myArray = [1, "Hello", [2, 3]]; // indexes 1, 0, 2
+print(myArray.slice(1, 2)); // ["Hello"]
+
+
+
+// splice - This method is used to add or remove elements from an array. For example, the following code will remove the element at index 1 and add the elements "Hello World" and [4, 5] at index 1:
+// 1: Start at index 1, which is "Hello"
+// 2: Delete 1 element → "Hello" is removed
+// "Hello World" and [4, 5] are inserted at index 1
+var myArray = [1, "Hello", [2, 3]];
+myArray.splice(1, 1, "Hello World", [4, 5]);
+print(myArray); // [1, "Hello World", [4, 5], [2, 3]]
+// "Hello" was removed
+// "Hello World" and [4, 5] inserted at index 1
+// The [2, 3] (which was at index 2 originally) shifts to index 3
+
+
