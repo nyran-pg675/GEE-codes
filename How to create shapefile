@@ -1,4 +1,7 @@
-// Note: To create a shapefile, click on (Draw a shape, line, or rectangle and) and draw
+// Note: 1. To create a shapefile, click on (Draw a shape, line, or rectangle and) and draw. 
+         2. Save the file according to your preference (either geomtery or aoi)
+         3. Copy the code below and paste, and click on run
+
 var aoinewCollection = ee.FeatureCollection([geometry])
 
 // export the file 
