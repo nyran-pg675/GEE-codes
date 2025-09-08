@@ -1,0 +1,116 @@
+
+// 1) AOI
+
+var aoi = table.filter(ee.Filter.eq('NAME_1','Eastern Highlands'));
+Map.centerObject(aoi, 10);
+Map.addLayer(aoi, {}, 'AOI boundary');
+
+
+// 2) MODIS NDVI (annual mean)
+
+var ndvi = ee.ImageCollection("MODIS/061/MOD13A2")
+  .filterDate('2024-01-01','2024-12-31')
+  .filterBounds(aoi)
+  .select('NDVI')
+  .map(function(img){ return img.multiply(0.0001); }); // apply scale factor
+
+var ndvi_mean = ndvi.mean(); // annual average NDVI
+
+
+// 3) CHIRPS Rainfall
+
+var chirps = ee.ImageCollection("UCSB-CHG/CHIRPS/DAILY")
+  .filterDate('2024-01-01','2024-12-31')
+  .filterBounds(aoi)
+  .select('precipitation');
+
+var total_rainfall = chirps.sum(); // annual sum
+
+
+// 4) Standardized Anomaly (pseudo-SPI)
+
+var meanPrecip = total_rainfall.reduceRegion({
+  reducer: ee.Reducer.mean(),
+  geometry: aoi,
+  scale: 5000,
+  maxPixels: 1e13
+}).getNumber('precipitation');
+
+var stdPrecip = total_rainfall.reduceRegion({
+  reducer: ee.Reducer.stdDev(),
+  geometry: aoi,
+  scale: 5000,
+  maxPixels: 1e13
+}).getNumber('precipitation');
+
+var spi = total_rainfall.subtract(meanPrecip).divide(stdPrecip);
+
+
+// 5) Visualization
+
+var spiVisi = {min: -2, max: 2, palette: ['red','yellow','green','blue']};
+var ndviVisi = {min: -1, max: 1, palette: ['red','yellow','green']};
+
+Map.addLayer(spi.clip(aoi), spiVisi, 'SPI');
+Map.addLayer(ndvi_mean.clip(aoi), ndviVisi, 'Mean NDVI');
+
+
+// 6) Sampling
+
+var samplepoints = ndvi_mean.addBands(spi).sample({
+  region: aoi,
+  scale: 1000,
+  numPixels: 500,
+  geometries: true
+});
+
+var spindvitable = samplepoints.map(function(f){
+  return f.set({
+    SPI: f.get('precipitation'),  // SPI values came from rainfall band
+    NDVI: f.get('NDVI')
+  });
+});
+
+print('Sample SPI and NDVI', spindvitable);
+
+// -------------------------
+// 7) Scatter Plot
+// -------------------------
+var chart = ui.Chart.feature.byFeature({
+  features: spindvitable,
+  xProperty: 'SPI',
+  yProperties: ['NDVI']
+})
+.setChartType('ScatterChart')
+.setOptions({
+  title: 'Correlation between SPI and NDVI (2024)',
+  hAxis: {title: 'Standardized Precipitation Index (SPI)'},
+  vAxis: {title: 'Normalized Difference Vegetation Index (NDVI)'},
+  pointSize: 3,
+  trendlines: {0: {color:'red', visibleInLegend: true}}
+});
+
+print(chart);
+
+
+// 8) Export GeoTIFFs
+
+Export.image.toDrive({
+  image: spi.clip(aoi),
+  description: 'SPI_2024',
+  folder: 'GEE_exports',
+  fileNamePrefix: 'SPI_2024',
+  scale: 1000,
+  region: aoi,
+  maxPixels: 1e13
+});
+
+Export.image.toDrive({
+  image: ndvi_mean.clip(aoi),
+  description: 'NDVI_2024',
+  folder: 'GEE_exports',
+  fileNamePrefix: 'NDVI_2024',
+  scale: 1000,
+  region: aoi,
+  maxPixels: 1e13
+});
