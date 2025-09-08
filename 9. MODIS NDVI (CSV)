@@ -1,0 +1,124 @@
+// 1: Load and Prepare District Boundaries
+var aoi = ee.FeatureCollection('AOI');
+print('Full boundary', aoi);
+
+var districtName = aoi.aggregate_array('District').distinct();
+print('District Names:', districtName);
+
+// zoom to the study area
+Map.centerObject(aoi, 8);
+
+// full AOI boundary style like outline, transpareny, and thickness of the outline
+var aoiStyle = aoi.style({
+  color: 'black',
+  fillColor: '#00000000',
+  width: 2
+});
+Map.addLayer(aoiStyle, {}, 'AOI');
+
+// Filter only the selected 10 districts
+var selectedDistrictName = ['List all the district'];
+var districts = aoi.filter(ee.Filter.inList('District', selectedDistrictName));
+
+// Visualize selected districts
+var districtStyle = districts.style({
+  color: 'red',
+  fillColor: '#00000000',
+  width: 2
+});
+Map.addLayer(districtStyle, {}, 'Selected Districts');
+
+
+// 2: Prepare Cropland Mask using ESA WorldCover
+var worldCover = ee.ImageCollection("ESA/WorldCover/v100").first();
+var cropMask = worldCover.eq(40);
+var maskCrop = cropMask.updateMask(cropMask).clip(aoi);
+
+// add cropland to the map layer
+Map.addLayer(maskCrop, {
+  min: 0,
+  max: 1,
+  palette: ['white', 'green']
+}, 'Cropland Mask');
+
+
+//  3: NDVI Time Series Analysis (2005–2024)
+var startYear = 2005;
+var endYear = 2024;
+
+// set visiual paramters to observe the color palette by setting min and max
+var visParams = {
+  min: 0.1,
+  max: 0.8,
+  palette: ['red', 'yellow', 'green']
+};
+
+// this is used for geometery collection are to be kept within ([])
+var yearlyStats = ee.FeatureCollection([]);
+
+// this is the main steps for csv format by processing image collection from 2005-2024
+function processYear(year) {
+  var NDVIComposite = ee.ImageCollection('MODIS/006/MOD13Q1')
+    .filter(ee.Filter.calendarRange(year, year, 'year'))
+    .filter(ee.Filter.calendarRange(5, 10, 'month'))
+    .select('NDVI') // for this case we are focusing on NDVI (Band Table)
+    .map(function(img) {
+      return img
+        .multiply(0.0001)  // scale factor that can extract from band table
+        .updateMask(cropMask)
+        .copyProperties(img, ['system:time_start']);
+    });
+// calculate the average collection of images of kashmir
+  var meanNDVI = NDVIComposite.mean().clipToCollection(districts);
+// to check available bands to the imageCollection collected
+  var stats = ee.Algorithms.If(
+    meanNDVI.bandNames().size().gt(0),
+    meanNDVI.reduceRegions({
+      collection: aoi,
+      reducer: ee.Reducer.mean(),
+      scale: 250,
+      crs: 'EPSG:4326',
+      tileScale: 4
+    }).map(function(feature) {
+      return feature
+        .set('year', year)
+        .setGeometry(null);  // Remove geometry here
+    }),
+    ee.FeatureCollection([])
+  );
+// stats. This line adds the current year's NDVI statistics (stats) into a larger collection called yearlyStats
+// ee.FeatureCollection(stats): Converts stats into a FeatureCollection so it can be merged.
+// yearlyStats.merge(...): Combines the previous stats with the new year’s stats.
+  yearlyStats = yearlyStats.merge(ee.FeatureCollection(stats));
+// 'NDVI ' + year.toString(): Sets the layer name as e.g., "NDVI 2010". false mean layer is add but not shown until manually turned on.
+  Map.addLayer(meanNDVI, visParams, 'NDVI ' + year.toString(), false);
+}
+// Run loop for all years 
+ee.List.sequence(startYear, endYear).getInfo().forEach(processYear);
+
+
+// 4: Print and Export csv format.
+print('Per-district mean NDVI stats (2005–2024):', yearlyStats);
+
+Export.table.toDrive({
+  collection: yearlyStats,
+  description: 'DistrictWise_meanNDVI_2005_2024_NoGeometry',
+  folder: 'GEE_NDVI_EXPORT',
+  fileNamePrefix: 'DistrictWise_meanNDVI_2005_2024_NoGeometry',
+  fileFormat: 'CSV'
+});
+
+// This is the workflow of the codes for CSV format
+
+
+
+
+
+
+
+
+
+
+
+
+
