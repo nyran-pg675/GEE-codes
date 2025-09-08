@@ -1,0 +1,92 @@
+// 1. Define Texas Boundary 
+var texas = ee.FeatureCollection('projects/fresh-century-432117-j1/assets/gadm41_PNG_1_Provincal_level')
+
+Map.centerObject(texas, 6);
+Map.addLayer(texas, {color: 'black'}, 'Texas Boundary');
+
+//  2. Load and Clip GHI Data 
+var ghi = ee.Image('projects/earthengine-legacy/assets/projects/sat-io/open-datasets/global_solar_atlas/ghi_LTAy_AvgDailyTotals')
+  .clip(texas);
+
+var ghiVis = {
+  min: 0,
+  max: 7,
+  palette: ['blue', 'green', 'yellow', 'orange', 'red']
+};
+Map.addLayer(ghi, ghiVis, 'GHI (Avg Daily kWh/m²)');
+
+// 3. Load ESA WorldCover LULC 
+var lulc = ee.Image("ESA/WorldCover/v100/2020").select('Map').clip(texas);
+var suitableLULC = lulc.remap([10, 20, 30, 40], [1, 1, 1, 1], 0);  // tree, shrubland, grassland, cropland
+
+//  4. Apply GHI Threshold 
+var ghiThreshold = 5;
+var highGHI = ghi.gt(ghiThreshold);
+
+//  5. Load DEM and Derive Slope & Aspect 
+var dem = ee.Image('USGS/SRTMGL1_003').clip(texas);
+var terrain = ee.Terrain.products(dem);
+var slope = terrain.select('slope');
+var aspect = terrain.select('aspect');
+
+// 6. Filter by Slope (e.g., <= 10 degrees) 
+var suitableSlope = slope.lte(10);
+
+//  7. Filter by Aspect (prefer South-facing: 135°–225°) 
+var suitableAspect = aspect.gte(135).and(aspect.lte(225));
+
+//  8. Combine All Suitability Masks 
+var suitable = highGHI
+  .and(suitableLULC)
+  .and(suitableSlope)
+  .and(suitableAspect)
+  .selfMask(); // mask unsuitable areas
+
+Map.addLayer(suitable, {palette: ['#00FF00']}, 'Suitable Solar Areas');
+
+//  9. Export Suitable Areas 
+Export.image.toDrive({
+  image: suitable.toFloat().reproject({crs: 'EPSG:4326', scale: 1000}),
+  description: 'Texas_Solar_Suitability_with_DEM_2024',
+  folder: 'GEE_Exports',
+  scale: 1000,
+  crs: 'EPSG:4326',
+  region: texas.geometry(),
+  maxPixels: 1e13,
+  fileFormat: 'GeoTIFF',
+  formatOptions: {
+    cloudOptimized: true
+  }
+});
+
+//  10. Optional Terrain Visualization 
+var demVis = {min: 0, max: 3000, palette: ['blue', 'green', 'yellow', 'orange', 'brown']};
+var slopeVis = {min: 0, max: 30, palette: ['white', 'orange', 'red']};
+var aspectVis = {min: 0, max: 360, palette: ['purple', 'blue', 'green', 'yellow', 'orange', 'red']};
+
+Map.addLayer(dem, demVis, 'Elevation (DEM)');
+Map.addLayer(slope, slopeVis, 'Slope');
+Map.addLayer(aspect, aspectVis, 'Aspect');
+
+//  11. Optional GHI Legend 
+var ghiLegend = ui.Panel({ style: { position: 'bottom-right', padding: '8px 15px' } });
+
+ghiLegend.add(ui.Label({
+  value: 'GHI (kWh/m²/day)',
+  style: { fontWeight: 'bold', fontSize: '16px', margin: '0 0 6px 0' }
+}));
+
+var ghiColors = ['blue', 'green', 'yellow', 'orange', 'red'];
+var ghiLabels = ['2', '3', '4', '5', '6+'];
+
+for (var i = 0; i < ghiColors.length; i++) {
+  ghiLegend.add(ui.Panel({
+    widgets: [
+      ui.Label({ style: { backgroundColor: ghiColors[i], padding: '10px', margin: '4px', width: '20px', height: '20px' } }),
+      ui.Label({ value: ghiLabels[i], style: { margin: '0 0 4px 6px' } })
+    ],
+    layout: ui.Panel.Layout.Flow('horizontal')
+  }));
+}
+
+Map.add(ghiLegend);
