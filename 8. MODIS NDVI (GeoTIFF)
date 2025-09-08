@@ -1,0 +1,86 @@
+Change the shapefile according to your preference:
+// 1. Load the shapefile
+var roi = ee.FeatureCollection("");
+
+// Visualize map
+Map.centerObject(roi, 8);
+
+// Create boundary of the roi
+Map.addLayer(roi.style({
+  color:'black',
+  fillColor:'#00000000',
+  width:2
+}),{},'AOI');
+
+// 2.  filter the district (Only 10 district will be analyse)
+var selectedDistrictName = ['List all the district found in shapefile'];
+var selectedDistrict = roi.filter(ee.Filter.inList('roi',selectedDistrictName));
+
+// Visualize selected district
+var districtStyle = selectedDistrict.style({
+  color: 'red',
+  fillColor: '#00000000',
+  width: 2
+})
+Map.addLayer(districtStyle, {}, 'Selected district only');
+
+
+// 3. load worldcover dataset(ESA)
+var WorldCover = ee.ImageCollection("ESA/WorldCover/v100").first();
+var cropMask = WorldCover.eq(40); // class 40 = cropland
+var Maskcrop = cropMask.updateMask(cropMask).clip(roi);
+
+// Add worldcover to map layer to visualize
+Map.addLayer(Maskcrop,{
+  min:0,
+  max:1,
+  palette:['white','green']
+},'croplandmask');
+
+
+// set Date
+var startYear = 2005;
+var endYear = 2024;
+
+// 4. NDVI composite (May-October, 2005-2024)
+var NDVIComposite = ee.ImageCollection('MODIS/006/MOD13Q1')
+.filter(ee.Filter.calendarRange(startYear, endYear, 'year'))
+.filter(ee.Filter.calendarRange(5, 10, 'month')) // May to October
+.select('NDVI')
+.map(function(image){           // function 
+  return image.multiply(0.0001) // Scale NDVI to get the exact value for NDVI
+  .updateMask(cropMask)
+});
+
+var meanNDVI = NDVIComposite.mean().clip(roi);
+
+// visualize the paramters
+var visParams = {min: 0.1, max: 0.8, palette:['red','yellow','green']};
+  
+// visualize NDVI composite 
+Map.addLayer(meanNDVI, visParams,'MeanNDVI');
+
+// 5. Compute and Print Statistics
+var stats = meanNDVI.reduceRegion({
+  reducer: ee.Reducer.minMax(),
+  geometry: roi,
+  scale: 250,
+  maxPixels: 1e13
+});
+print('NDVI min/max values:', stats);
+
+
+// 5. Export Composite NDVI as geotif 
+Export.image.toDrive({
+  image: meanNDVI,
+  description:'NDVI_CroplandMasked_2005_2024_AllDistricts',
+  folder: 'GEE_NDVI_Exports',
+  fileNamePrefix: 'NDVI_Cropland_2005_2024_AllDistricts',
+  region: roi.geometry(),
+  scale: 250,
+  crs: 'EPSG:4326',
+  maxPixels: 1e13,
+});
+
+
+
