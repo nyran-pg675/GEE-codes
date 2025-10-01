@@ -13,8 +13,8 @@ Map.centerObject(roi, 6);
 Map.addLayer(roi, {}, 'Study Area');
 
 // 2. Load and Process Nitrogen Dioxide (NO₂) Data
-var startYear = '2023';
-var endYear = '2024';
+var startYear = '2023-01-01';
+var endYear = '2023-12-31';
 
 var no2Collection = ee.ImageCollection('COPERNICUS/S5P/NRTI/L3_NO2')
   .select('NO2_column_number_density')
@@ -55,7 +55,7 @@ print(
     scale: 7000,
     xProperty: 'system:time_start'
   }).setOptions({
-    title: 'Monthly NO₂ Levels (2023–2024)',
+    title: 'Monthly NO₂ Levels (2023)',
     vAxis: {title: 'NO₂ Concentration (mol/m²)'},
     hAxis: {title: 'Year'},
     series: {0: {color: 'red'}},
@@ -63,17 +63,13 @@ print(
   })
 );
 
-// 5. Extract NO₂ for 2020 (Visualization & Export)
-var no2_2020 = monthlyNO2.filterDate('2023-01-01', '2024-12-31').mean();
-Map.addLayer(no2_2020.clip(roi), no2Vis, 'NO₂ - 2023-2024');
-
-// Export NO₂ data for 2020
+// Export NO₂ data for 2023
 Export.image.toDrive({
-  image: no2_2020.clip(roi),
-  description: 'NO2_2020_Mean',
-  scale: 1000,
+  image: 
+  description:
+  scale: 
   region: roi,
   maxPixels: 1e13,
-  folder: 'NO2_Analysis',
+  folder: 'Nyran Tahija',
   crs: 'EPSG:4326'
 });
