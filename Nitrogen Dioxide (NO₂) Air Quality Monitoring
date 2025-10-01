@@ -13,38 +13,32 @@ Map.centerObject(roi, 6);
 Map.addLayer(roi, {}, 'Study Area');
 
 // 2. Load and Process Nitrogen Dioxide (NO₂) Data
-var startYear = '2023-01-01';
-var endYear = '2023-12-31';
-
 var no2Collection = ee.ImageCollection('COPERNICUS/S5P/NRTI/L3_NO2')
   .select('NO2_column_number_density')
-  .filterDate(startYear, endYear)
+  .filterDate('2023-01-01', '2023-12-31')
   .filterBounds(roi);
 
-// Generate a list of years and months
-var yearsList = ee.List.sequence(ee.Number.parse(startYear), ee.Number.parse(endYear).subtract(1));
+// Generate a list of months (Jan–Dec 2023)
 var monthsList = ee.List.sequence(1, 12);
 
-// 3. Compute the Monthly Average NO₂ Levels
+// 3. Compute the Monthly Average NO₂ Levels for 2023
 var monthlyNO2 = ee.ImageCollection(
-  yearsList.map(function(year) {
-    return monthsList.map(function(month) {
-      var monthlyImage = no2Collection
-        .filter(ee.Filter.calendarRange(year, year, 'year'))
-        .filter(ee.Filter.calendarRange(month, month, 'month'))
-        .mean();
-
-      var timestamp = ee.Date.fromYMD(year, month, 1);
-      return monthlyImage.set('system:time_start', timestamp.millis());
-    });
-  }).flatten()
+  monthsList.map(function(month) {
+    var monthlyImage = no2Collection
+      .filter(ee.Filter.calendarRange(2023, 2023, 'year'))
+      .filter(ee.Filter.calendarRange(month, month, 'month'))
+      .mean();
+      
+    var timestamp = ee.Date.fromYMD(2023, month, 1);
+    return monthlyImage.set('system:time_start', timestamp.millis());
+  })
 );
 
 // Visualization parameters
 var no2Vis = {min: 0, max: 0.0002, palette: ['blue', 'yellow', 'red']};
 
-// Display average NO₂
-Map.addLayer(monthlyNO2.mean().clip(roi), no2Vis, 'Average NO₂ Concentration');
+// Display average NO₂ for 2023
+Map.addLayer(monthlyNO2.mean().clip(roi), no2Vis, 'Average NO₂ Concentration 2023');
 
 // 4. Generate NO₂ Time Series Chart
 print(
@@ -57,17 +51,18 @@ print(
   }).setOptions({
     title: 'Monthly NO₂ Levels (2023)',
     vAxis: {title: 'NO₂ Concentration (mol/m²)'},
-    hAxis: {title: 'Year'},
+    hAxis: {title: 'Month'},
     series: {0: {color: 'red'}},
     pointSize: 4
   })
 );
 
-// Export NO₂ data for 2023
+// 5. Export NO₂ data for 2023
+var no2_2023 = monthlyNO2.mean();
 Export.image.toDrive({
-  image: 
-  description:
-  scale: 
+  image: no2_2023.clip(roi),
+  description: 'NO2_2023_Mean',
+  scale: 1000,
   region: roi,
   maxPixels: 1e13,
   folder: 'Nyran Tahija',
