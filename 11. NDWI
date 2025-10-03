@@ -1,0 +1,40 @@
+// 1. Load Bhopal shapefile
+Map.centerObject(bhopal, 9);
+Map.addLayer(bhopal, {}, "Bhopal");
+
+// 2. Load Sentinel-2 Harmonized Surface Reflectance data
+var s2 = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+  .filterBounds(bhopal)
+  .filterDate('2024-01-01', '2024-12-31')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10));
+
+// 3. Select Green and NIR bands, and calculate NDWI for each image
+var withNDWI = s2.map(function(image) {
+  var green = image.select('B3'); // Green band
+  var nir = image.select('B8');   // Near-Infrared band
+  var ndwi = green.subtract(nir).divide(green.add(nir)).rename('NDWI');
+  return ndwi.copyProperties(image, image.propertyNames());
+});
+
+// 4. Take the median NDWI image
+var ndwi2024 = withNDWI.median();
+
+// 5. Visualize NDWI
+var ndwiVis = {
+  min: -1,
+  max: 1,
+  palette: ['brown', 'white', 'blue'] // Water appears in blue
+};
+Map.addLayer(ndwi2024.clip(bhopal), ndwiVis, 'NDWI 2024 (Sentinel-2)');
+
+// 6. Export to Google Drive
+Export.image.toDrive({
+  image: ndwi2024.clip(bhopal),
+  description: 'NDWI_2024_Sentinel2_Bhopal',
+  folder: 'GEE_exports',
+  fileNamePrefix: 'NDWI_S2_2024_Bhopal',
+  region: bhopal.geometry(),
+  scale: 10,
+  crs: 'EPSG:4326',
+  maxPixels: 1e13
+});
