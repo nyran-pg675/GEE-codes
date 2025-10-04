@@ -1,0 +1,70 @@
+// Sentinel-5P Based Nitrogen Dioxide (NO₂) Air Quality Monitoring Using Google Earth Engine
+
+// 1. Define the Study Area (Custom Box over Papua New Guinea)
+var roi = ee.Geometry.Polygon([
+  [140.96179658302262, -0.6390312138654293],
+  [140.96179658302262, -10.597626930467065],
+  [156.25476533302262, -10.597626930467065],
+  [156.25476533302262, -0.6390312138654293]
+]);
+
+// Center the map and add the ROI
+Map.centerObject(roi, 6);
+Map.addLayer(roi, {}, 'Study Area');
+
+// 2. Load and Process Nitrogen Dioxide (NO₂) Data
+var no2Collection = ee.ImageCollection('COPERNICUS/S5P/NRTI/L3_NO2')
+  .select('NO2_column_number_density')
+  .filterDate('2023-01-01', '2023-12-31')
+  .filterBounds(roi);
+
+// Generate a list of months (Jan–Dec 2023)
+var monthsList = ee.List.sequence(1, 12);
+
+// 3. Compute the Monthly Average NO₂ Levels for 2023
+var monthlyNO2 = ee.ImageCollection(
+  monthsList.map(function(month) {
+    var monthlyImage = no2Collection
+      .filter(ee.Filter.calendarRange(2023, 2023, 'year'))
+      .filter(ee.Filter.calendarRange(month, month, 'month'))
+      .mean();
+      
+    var timestamp = ee.Date.fromYMD(2023, month, 1);
+    return monthlyImage.set('system:time_start', timestamp.millis());
+  })
+);
+
+// Visualization parameters
+var no2Vis = {min: 0, max: 0.0002, palette: ['blue', 'yellow', 'red']};
+
+// Display average NO₂ for 2023
+Map.addLayer(monthlyNO2.mean().clip(roi), no2Vis, 'Average NO₂ Concentration 2023');
+
+// 4. Generate NO₂ Time Series Chart
+print(
+  ui.Chart.image.series({
+    imageCollection: monthlyNO2,
+    region: roi,
+    reducer: ee.Reducer.mean(),
+    scale: 7000,
+    xProperty: 'system:time_start'
+  }).setOptions({
+    title: 'Monthly NO₂ Levels (2023)',
+    vAxis: {title: 'NO₂ Concentration (mol/m²)'},
+    hAxis: {title: 'Month'},
+    series: {0: {color: 'red'}},
+    pointSize: 4
+  })
+);
+
+// 5. Export NO₂ data for 2023
+var no2_2023 = monthlyNO2.mean();
+Export.image.toDrive({
+  image: no2_2023.clip(roi),
+  description: 'NO2_2023_Mean',
+  scale: 1000,
+  region: roi,
+  maxPixels: 1e13,
+  folder: 'Nyran Tahija',
+  crs: 'EPSG:4326'
+});
