@@ -1,0 +1,25 @@
+// location 
+var aoi = ee.FeatureCollection("select you shapefile");
+Map.centerObject(aoi, 9);
+
+// Load STRM dataset (DEM)
+var aoi_srtm = ee.Image("CGIAR/SRTM90_V4")
+.clip(aoi);
+
+// visulize the paramter 
+var demVisiPara = {
+  min: 0,
+  max: 5000,
+  palette: ['blue','green','brown','white','red']
+};
+
+Map.addLayer(aoi_srtm, demVisiPara, 'DEM');
+
+// Load slope 
+var slope = ee.Terrain.slope(aoi_srtm);
+Map.addLayer(slope,{min: 0, max: 90, palette: ['blue','green','yellow','white','red']}, 'slope',true);
+
+// load hillshade
+var hillshade = ee.Terrain.hillshade(aoi_srtm);
+Map.addLayer(hillshade,{min:0, max:255, palette:['#000000', '#888888', '#ffffff']},'hillshase',true);
+
