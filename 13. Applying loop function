@@ -1,0 +1,19 @@
+// Classical for loop exampe (Java Script loop)
+for (var i = 1; i <= 5; i++) {
+  print('Number:', i)
+}
+
+// Return something (no printing inside .map())
+var years = ee.List ([2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]);
+var processYears = years.map(function(m){
+  return ee.Number(m).add(1);
+});
+print('Processed Years:', processYears);
+
+// Print years one by one (client-side loop)
+var years = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
+
+years.forEach(function(y) {
+  print('Processing year:', y);
+});
+
