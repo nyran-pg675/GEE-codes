@@ -1,0 +1,9 @@
+Here’s the clean structure most scripts follow:
+// 1. Import Data
+// 2. Define ROI
+// 3. Preprocess Data (filter, select bands, etc.)
+// 4. Apply Analysis (NDVI, mean, time series, etc.)
+// 5. Visualize (Map.addLayer)
+// 6. Chart or Statistics
+// 7. Create legend
+// 8. Export Data (optional)
