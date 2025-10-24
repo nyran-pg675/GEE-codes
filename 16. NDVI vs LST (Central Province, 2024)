@@ -1,0 +1,113 @@
+// 1. Define AOI
+var aoi = table.filter(ee.Filter.eq("NAME_1", "Central"));
+Map.centerObject(aoi, 9);
+Map.addLayer(aoi, {}, "Bhopal");
+
+// 2. Sentinel-2 NDVI (2024)
+
+var s2 = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+  .filterBounds(aoi)
+  .filterDate('2024-01-01', '2024-12-31')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10));
+
+var ndviImage = s2.map(function(image) {
+  var ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI');
+  return ndvi.copyProperties(image, image.propertyNames());
+}).median().clip(aoi);
+
+Map.addLayer(ndviImage, {
+  min: 0,
+  max: 1,
+  palette: ['blue', 'yellow', 'green']
+}, 'NDVI 2024');
+
+// 3. Landsat 8 LST (2024)
+
+function applyScaleFactors(image) {
+  var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
+  var thermalBands = image.select('ST_B.*').multiply(0.00341802).add(149.0);
+  return image.addBands(opticalBands, null, true)
+              .addBands(thermalBands, null, true);
+}
+
+function cloudMask(image) {
+  var qa = image.select('QA_PIXEL');
+  var cloudShadowBitMask = (1 << 3);
+  var cloudBitMask = (1 << 5);
+  var mask = qa.bitwiseAnd(cloudShadowBitMask).eq(0)
+               .and(qa.bitwiseAnd(cloudBitMask).eq(0));
+  return image.updateMask(mask);
+}
+
+var l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+  .filterBounds(aoi)
+  .filterDate('2024-01-01', '2024-12-31')
+  .map(applyScaleFactors)
+  .map(cloudMask)
+  .median()
+  .clip(aoi);
+
+// NDVI for emissivity calculation (Landsat bands)
+var ndviL8 = l8.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI_L8');
+
+var ndviMin = ee.Number(ndviL8.reduceRegion({
+  reducer: ee.Reducer.min(),
+  geometry: aoi,
+  scale: 30,
+  maxPixels: 1e9
+}).values().get(0));
+
+var ndviMax = ee.Number(ndviL8.reduceRegion({
+  reducer: ee.Reducer.max(),
+  geometry: aoi,
+  scale: 30,
+  maxPixels: 1e9
+}).values().get(0));
+
+var fv = ndviL8.subtract(ndviMin)
+               .divide(ndviMax.subtract(ndviMin))
+               .pow(2)
+               .rename('FV');
+
+var em = fv.multiply(0.004).add(0.986).rename('EM');
+
+var thermal = l8.select('ST_B10').rename('thermal');
+
+var lst = thermal.expression(
+  '(TB / (1 + (0.00115 * (TB / 1.438)) * log(em))) - 273.15', {
+    'TB': thermal,
+    'em': em
+}).rename('LST_Celsius');
+
+Map.addLayer(lst, {
+  min: 20,
+  max: 35,
+  palette: [
+    '040274', '0502b8', '0602ff', '307ef3', '32d3ef', '3be285',
+    '3ff38f', '86e26f', '3ae237', 'b5e22e', 'fff705', 'ffb613',
+    'ff8b13', 'ff6e08', 'ff0000', 'a71001'
+  ]
+}, 'LST 2024');
+
+// 4. Combine NDVI & LST for correlation
+var combined = ndviImage.addBands(lst);
+
+var samples = combined.sample({
+  region: aoi,
+  scale: 30,
+  numPixels: 5000,
+  geometries: false
+});
+
+// 5. Scatter plot: NDVI vs. LST
+var chart = ui.Chart.feature.byFeature(samples, 'NDVI', ['LST_Celsius'])
+  .setChartType('ScatterChart')
+  .setOptions({
+    title: 'NDVI vs LST (Central Province, 2024)',
+    hAxis: {title: 'NDVI'},
+    vAxis: {title: 'LST (°C)'},
+    pointSize: 2,
+    trendlines: { 0: {type: 'linear', color: 'red', showR2: true} }
+  });
+
+print(chart);
