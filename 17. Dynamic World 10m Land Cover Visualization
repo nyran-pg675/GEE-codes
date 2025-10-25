@@ -3,9 +3,11 @@
 
 //   Set Map Display
 Map.setOptions('SATELLITE');
+Map.centerObject(aoi, 6);
+
 //   Define Region of Interest (ROI)
-var boundaries = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017'); // you can add your shapefile if you want.
-var zimbabwe = boundaries.filter(ee.Filter.eq('country_na', 'Name of the country'));
+var boundaries = ee.FeatureCollection(''); // you can add your shapefile if you want.
+var aoi = boundaries.filter(ee.Filter.eq('country_na', 'roi'));
 //   Define Time Period
 var start = '2022-01-01';
 var end = '2022-05-31';
@@ -14,12 +16,12 @@ var end = '2022-05-31';
 var dynamicWorld = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
   .filterDate(start, end);
 
-var dwMosaic = dynamicWorld.mosaic().clip(zimbabwe);
+var LULCMosaic = dynamicWorld.mosaic().clip(aoi);
 print('Dynamic World Mosaic Image:', dwMosaic);
 
 //   Visualize Land Cover Classification
-var landCover = dwMosaic.select('label');
-var dwPalette = [
+var landCover = LULCMosaic.select('label');
+var LULCPalette = [
   '#419BDF', '#397D49', '#888053', '#7A87C6', '#E49635',
   '#DFC35A', '#C4281B', '#A59B8F', '#B39FE1'
 ];
@@ -27,11 +29,9 @@ var dwPalette = [
 var visParams = {
   min: 0,
   max: 8,
-  palette: dwPalette
+  palette: LULCPalette
 };
-
 Map.addLayer(landCover, visParams, 'Dynamic World Classification (2022)');
-Map.centerObject(zimbabwe, 6);
 
 //  Export Classified Map to Google Drive
 Export.image.toDrive({
