@@ -1,0 +1,90 @@
+// Define area of interest (draw a polygon or import as FeatureCollection)
+var geometry = table; // Replace 'table' with your actual FeatureCollection if needed
+
+var styledBoundary = geometry.style({
+  color: 'black',             // Boundary line color
+  fillColor: '00000000',      // Transparent fill (RGBA hex)
+  width: 5                    // Line width
+});
+
+// Load Sentinel-5P Carbon Monoxide (CO) data
+var co = ee.ImageCollection("COPERNICUS/S5P/OFFL/L3_CO")
+  .filterBounds(geometry)
+  .filterDate('2024-01-01', '2024-12-31')  // Set date range
+  .select('CO_column_number_density'); // Select CO band
+
+// Reduce to one image using mean
+var co_mean = co.mean().clip(geometry);
+
+// Visualization parameters
+var visParams = {
+  min: 0,
+  max: 0.05,
+  palette: ['black', 'purple', 'blue', 'cyan', 'green', 'yellow', 'red']
+};
+
+// Center map and add CO layer
+Map.centerObject(geometry, 12);
+Map.addLayer(co_mean, visParams, 'CO Mean');
+
+// Add boundary outline with width 5
+Map.addLayer(ee.Image().paint(geometry, 0, 5), {palette: 'black'}, 'Boundary');
+
+// Add a legend to the map
+var legend = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+
+var legendTitle = ui.Label({
+  value: 'CO Density (mol/m²)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    margin: '0 0 4px 0',
+    padding: '0'
+  }
+});
+legend.add(legendTitle);
+
+// Create color bar
+var makeColorBar = function(palette) {
+  var colorBar = ui.Thumbnail({
+    image: ee.Image.pixelLonLat().select(0),
+    params: {
+      bbox: [0, 0, 1, 0.1],
+      dimensions: '100x10',
+      format: 'png',
+      min: 0,
+      max: 1,
+      palette: palette
+    },
+    style: {stretch: 'horizontal', margin: '0px 8px', maxHeight: '20px'}
+  });
+  return colorBar;
+};
+legend.add(makeColorBar(visParams.palette));
+
+// Create min and max labels
+var legendLabels = ui.Panel({
+  widgets: [
+    ui.Label(visParams.min.toString(), {margin: '4px 8px'}),
+    ui.Label(visParams.max.toString(), {margin: '4px 8px', textAlign: 'right', stretch: 'horizontal'})
+  ],
+  layout: ui.Panel.Layout.flow('horizontal')
+});
+legend.add(legendLabels);
+
+Map.add(legend);
+
+// Export the image to Google Drive
+Export.image.toDrive({
+  image: co_mean,
+  description: 'CO_Sentinel5P_Export',
+  scale: 1000,
+  region: geometry,
+  maxPixels: 1e13,
+  fileFormat: 'GeoTIFF'
+});
