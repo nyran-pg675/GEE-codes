@@ -1,0 +1,79 @@
+// 1. Define area of interest
+var geometry = table;  // Ensure your shapefile or table is imported
+
+// 2. Load Sentinel-5P CH₄ data (April–May 2025)
+var CH4 = ee.ImageCollection("COPERNICUS/S5P/OFFL/L3_CH4")
+  .filterBounds(geometry)
+  .filterDate('2025-04-01', '2025-05-15')
+  .select('CH4_column_volume_mixing_ratio_dry_air');
+
+// 3. Compute mean image and clip to AOI
+var ch4_mean = CH4.mean().clip(geometry);
+
+// 4. Visualization parameters
+var band_viz = {
+  min: 1800,
+  max: 2000,
+  palette: ['blue', 'cyan', 'green', 'yellow', 'red']
+};
+
+// 5. Add CH₄ mean to map
+Map.centerObject(geometry, 12);
+Map.addLayer(ch4_mean, band_viz, 'CH₄ Mean (April–May 2025)');
+
+// 6. Add AOI boundary
+var boundaryStyle = {color: 'black', width: 5, fillColor: '00000000'};
+Map.addLayer(geometry.style(boundaryStyle), {}, 'AOI Boundary');
+
+// 7. Title panel on map
+var title = ui.Label({
+  value: 'Sentinel-5P CH₄ (April–May 2025)',
+  style: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    backgroundColor: 'white',
+    padding: '10px'
+  }
+});
+title.style().set({position: 'top-center'});
+Map.add(title);
+
+// 8. Compute min and max CH₄ values in the AOI
+var stats = ch4_mean.reduceRegion({
+  reducer: ee.Reducer.minMax(),
+  geometry: geometry,
+  scale: 7000,
+  maxPixels: 1e13
+});
+print('Minimum CH₄:', stats.get('CH4_column_volume_mixing_ratio_dry_air_min'));
+print('Maximum CH₄:', stats.get('CH4_column_volume_mixing_ratio_dry_air_max'));
+
+// 9. Add legend on map
+var legend = ui.Panel({
+  style: {position: 'bottom-left', padding: '8px 15px'}
+});
+legend.add(ui.Label({
+  value: 'CH₄ (ppb)',
+  style: {fontWeight: 'bold', fontSize: '14px', margin: '0 0 4px 0'}
+}));
+var colorBar = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select(0)
+    .multiply((band_viz.max - band_viz.min) / 100.0)
+    .add(band_viz.min)
+    .int()
+    .visualize({min: band_viz.min, max: band_viz.max, palette: band_viz.palette}),
+  params: {bbox: [0, 0, 100, 10], dimensions: '100x10'},
+  style: {stretch: 'horizontal', margin: '0px 8px', maxHeight: '24px'}
+});
+legend.add(colorBar);
+legend.add(ui.Panel({
+  widgets: [
+    ui.Label(band_viz.min.toString(), {margin: '4px 8px'}),
+    ui.Label('', {stretch: 'horizontal', margin: '4px 8px'}),
+    ui.Label(band_viz.max.toString(), {margin: '4px 8px'})
+  ],
+  layout: ui.Panel.Layout.flow('horizontal')
+}));
+Map.add(legend);
+
