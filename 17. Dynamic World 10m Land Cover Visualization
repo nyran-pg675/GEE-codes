@@ -1,0 +1,45 @@
+//  Dynamic World 10m Land Cover Visualization
+// Purpose: Extract and visualize land cover classification for aoi (Jan–May 2022)
+
+//   Set Map Display
+Map.setOptions('SATELLITE');
+//   Define Region of Interest (ROI)
+var boundaries = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017'); // you can add your shapefile if you want.
+var zimbabwe = boundaries.filter(ee.Filter.eq('country_na', 'Name of the country'));
+//   Define Time Period
+var start = '2022-01-01';
+var end = '2022-05-31';
+
+//   Load and Prepare Dynamic World Data
+var dynamicWorld = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
+  .filterDate(start, end);
+
+var dwMosaic = dynamicWorld.mosaic().clip(zimbabwe);
+print('Dynamic World Mosaic Image:', dwMosaic);
+
+//   Visualize Land Cover Classification
+var landCover = dwMosaic.select('label');
+var dwPalette = [
+  '#419BDF', '#397D49', '#888053', '#7A87C6', '#E49635',
+  '#DFC35A', '#C4281B', '#A59B8F', '#B39FE1'
+];
+
+var visParams = {
+  min: 0,
+  max: 8,
+  palette: dwPalette
+};
+
+Map.addLayer(landCover, visParams, 'Dynamic World Classification (2022)');
+Map.centerObject(zimbabwe, 6);
+
+//  Export Classified Map to Google Drive
+Export.image.toDrive({
+  image: landCover,
+  description: 'Dynamic_World_Zimbabwe_2022',
+  folder: 'Nyran works',
+  fileNamePrefix: 'you country',
+  scale: 10,
+  region: your aoi.geometry(),
+  maxPixels: 1e13
+});
