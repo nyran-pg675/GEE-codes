@@ -1,0 +1,84 @@
+Note: Normally, to visualize the NDVI we often define ROI by adding shapefile, or drawing polygon. This script is different with the main focus on capturing image tiles of ROI similar to the corpernicus dataset. 
+
+// Sentinel-2 NDVI Visualization
+// Author: Nyran Tahija
+
+// Center the map and set background
+Map.centerObject(roi, 10);
+Map.setOptions('SATELLITE');
+
+
+// Load Sentinel-2 Data
+
+var sen = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+  .filterDate('2024-01-01', '2024-01-31')              // Filter by date
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))  // Filter by cloud cover
+  .filterBounds(roi);                                   // Filter by region of interest
+
+print('Filtered Sentinel-2 Collection:', sen);
+
+
+//  Select One Image and Scale
+
+var image = ee.Image('COPERNICUS/S2_SR_HARMONIZED/20240105T055229_20240105T055232_T42QWK');
+var scaled = image.divide(10000);  // Scale reflectance values
+
+
+//  Compute NDVI
+
+// NDVI = (NIR - RED) / (NIR + RED)
+// Sentinel-2 Bands: B8 = NIR, B4 = RED
+var ndvi = scaled.normalizedDifference(['B8', 'B4']).rename('NDVI');
+
+
+//  Visualization Parameters
+
+var visTrueColor = {bands: ['B4', 'B3', 'B2'], min: 0, max: 0.3};
+var VisFalseColor = {bands: ['B8','B4','B3'], min: 0, max: 0.3};
+var visNDVI = {
+  min: -1,
+  max: 1,
+  palette: [
+    'blue', 'white', 'green', 'darkgreen'
+  ]
+};
+
+
+// Add Layers to Map
+Map.addLayer(scaled, VisFalseColor, 'False Color (NIRG)');
+Map.addLayer(scaled, visTrueColor, 'True Color (RGB)');
+Map.addLayer(ndvi, visNDVI, 'NDVI');
+
+
+//  Add a Legend for NDVI
+
+var legend = ui.Panel({
+  style: {position: 'bottom-left', padding: '8px 15px'}
+});
+
+var legendTitle = ui.Label({
+  value: 'NDVI Legend',
+  style: {fontWeight: 'bold', fontSize: '14px', margin: '0 0 4px 0'}
+});
+legend.add(legendTitle);
+
+var makeRow = function(color, name) {
+  var colorBox = ui.Label({
+    style: {backgroundColor: color, padding: '8px', margin: '0 0 4px 0'}
+  });
+  var description = ui.Label({value: name, style: {margin: '0 0 4px 6px'}});
+  return ui.Panel({widgets: [colorBox, description], layout: ui.Panel.Layout.Flow('horizontal')});
+};
+
+var palette = [
+  ['blue', 'Water/No Vegetation'],
+  ['white', 'Bare Soil/Low NDVI'],
+  ['green', 'Moderate Vegetation'],
+  ['darkgreen', 'Dense Vegetation']
+];
+
+palette.forEach(function(item) {
+  legend.add(makeRow(item[0], item[1]));
+});
+
+Map.add(legend);
