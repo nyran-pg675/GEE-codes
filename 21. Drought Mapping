@@ -1,0 +1,104 @@
+// 1. Load PNG Boundary 
+var png = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017')
+            .filter(ee.Filter.eq('country_na', 'Papua New Guinea'));
+
+Map.centerObject(png, 6);
+Map.addLayer(png, {color: 'black'}, 'PNG Boundary');
+
+// 2. Load MODIS NDVI 
+var dataset = ee.ImageCollection('MODIS/061/MOD13A2')
+              .filterDate('2024-01-01', '2024-12-31')
+              .select('NDVI');
+
+// MODIS NDVI values are scaled by 0.0001
+dataset = dataset.map(function(image) {
+  return image.multiply(0.0001).copyProperties(image, ['system:time_start']);
+});
+
+//  3. Compute NDVI Min & Max
+var ndviMin = dataset.reduce(ee.Reducer.min()).rename('NDVI_min');
+var ndviMax = dataset.reduce(ee.Reducer.max()).rename('NDVI_max');
+
+//  4. Compute VCI Collection 
+var vciCollection = dataset.map(function(image) {
+  var vci = image.subtract(ndviMin)
+                 .divide(ndviMax.subtract(ndviMin))
+                 .multiply(100)
+                 .rename('VCI');
+  return vci.set('system:time_start', image.get('system:time_start'));
+});
+
+// 5. Visualize Mean VCI 
+var vciMean = vciCollection.mean().clip(png).rename('VCI');
+
+var vciViz = {
+  min: 0,
+  max: 100,
+  palette: ['#FF0000', '#FF4500', '#FF8C00', '#FFA500', '#FFD700', 
+            '#ADFF2F', '#32CD32', '#008000', '#006400', '#004000']
+};
+
+Map.addLayer(vciMean, vciViz, 'Mean VCI');
+
+//  6. Add Legend 
+var legend = ui.Panel({
+  style: {
+    position: 'bottom-right',
+    padding: '8px 15px',
+    backgroundColor: 'white'
+  }
+});
+
+legend.add(ui.Label({
+  value: 'Vegetation Condition Index (VCI)',
+  style: { fontWeight: 'bold', fontSize: '14px', margin: '0 0 6px 0' }
+}));
+
+var colors = ['#FF0000', '#FF4500', '#FF8C00', '#FFA500', '#FFD700', 
+              '#ADFF2F', '#32CD32', '#008000', '#006400', '#004000'];
+
+var labels = ['0–10: Extreme Drought', '10–20: Severe Drought', '20–30: Moderate Drought',
+              '30–40: Mild Drought', '40–50: Normal', '50–60: Healthy', 
+              '60–70: Good', '70–80: Very Good', '80–90: Excellent', '90–100: Lush'];
+
+function addLegendItem(color, label) {
+  var colorBox = ui.Label('', {
+    backgroundColor: color,
+    padding: '10px',
+    margin: '4px',
+    border: '1px solid black'
+  });
+  var desc = ui.Label(label, {margin: '4px'});
+  legend.add(ui.Panel([colorBox, desc], ui.Panel.Layout.Flow('horizontal')));
+}
+
+for (var i = 0; i < colors.length; i++) {
+  addLegendItem(colors[i], labels[i]);
+}
+
+Map.add(legend);
+
+//  7. Fix Projection for Chart 
+var modisProjection = dataset.first().select('NDVI').projection();
+var pngReproj = png.geometry().transform(modisProjection, 1000);
+
+//  8. Time Series Chart 
+var vciChart = ui.Chart.image.series({
+  imageCollection: vciCollection,
+  region: pngReproj,
+  reducer: ee.Reducer.mean(),
+  scale: 1000,
+  xProperty: 'system:time_start'
+}).setOptions({
+  title: 'Vegetation Condition Index (VCI) Over Time (2024)',
+  hAxis: { title: 'Date', format: 'YYYY-MM' },
+  vAxis: { title: 'VCI (%)', minValue: 0, maxValue: 100 },
+  series: { 0: { color: 'green' } }
+});
+
+print(vciChart);
+
+//  9. Optional Debugging Info
+print('NDVI Min:', ndviMin);
+print('NDVI Max:', ndviMax);
+print('VCI ImageCollection:', vciCollection);
