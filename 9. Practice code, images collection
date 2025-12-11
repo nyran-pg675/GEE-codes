@@ -1,0 +1,54 @@
+// Step 1: Define the Area of Interest (AOI)
+var aoi = ee.Geometry.Point([145.77, -5.30]);  // Example: Madang, PNG
+
+// Step 2: Load the Sentinel-2 Image Collection
+var s2 = ee.ImageCollection('COPERNICUS/S2_SR');
+
+// Step 3: Filter the Collection
+var filtered = s2
+  .filterBounds(aoi)  // Spatial filter
+  .filterDate('2023-01-01', '2023-12-31')  // Temporal filter
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20));  // Cloud filter
+
+// Step 4: Select relevant bands (e.g., for NDVI or visualization)
+var selected = filtered.select(['B4', 'B3', 'B2']);  // Red, Green, Blue
+
+// Step 5: Create a median composite (cloud-free)
+var medianComposite = selected.median();
+
+// Step 6: Visualization parameters
+var visParams = {
+  bands: ['B4', 'B3', 'B2'],
+  min: 0,
+  max: 3000,
+  gamma: 1.4
+};
+
+// Step 7: Add to the Map
+Map.centerObject(aoi, 10);
+Map.addLayer(medianComposite, visParams, 'Median Composite');
+
+// Step 8: Print info
+print('Filtered ImageCollection:', filtered);
+print('Composite Image:', medianComposite);
+
+
+// Define Area of Interest (AOI)
+var aoi = ee.Geometry.Point([145.77, -5.30]);
+
+// Load and filter Sentinel-2 collection
+var collection = ee.ImageCollection('COPERNICUS/S2_SR')
+  .filterBounds(aoi)
+  .filterDate('2023-01-01', '2023-03-01')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20));
+
+// Map over the collection to compute NDVI for each image
+var withNDVI = collection.map(function(image) {
+  var ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI');
+  return image.addBands(ndvi);
+});
+
+// Print and visualize
+print('NDVI collection:', withNDVI);
+Map.centerObject(aoi, 10);
+Map.addLayer(withNDVI.median().select('NDVI'), {min: 0, max: 1, palette: ['white', 'green']}, 'Median NDVI');
