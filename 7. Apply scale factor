@@ -1,0 +1,27 @@
+//Image collection 
+
+//Apply scale factor 
+function applyScaleFactors(image){
+  var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2); //scale 
+  var thermalBands = image.select('SR_B.*').multiply(0.00341803).add(149.0);
+return image.addBands(opticalBands, null, true).addBands(thermalBands, null, true);
+}
+
+
+//Load image collection 
+var image = ee.ImageCollection("LANDSAT/LC09/C02/T1_L2") 
+.filterDate('2022-01-01', '2023-01-01')
+.map(applyScaleFactors);
+
+//display the image 
+
+var visualization = {
+  bands: ['SR_B4', 'SR_B3', 'SR_B2'], 
+  min: 0.0,
+  Max: 0.3
+};
+
+Map.addLayer(image, visualization, 'True color (432)');
+
+
+
